@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSA基準値検索ツール</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #7f8c8d;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 80%;
+            padding: 0.8rem;
+            font-size: 1.2rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input[type="number"]:focus {
+            border-color: #3498db;
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 1rem;
+        }
+        .result-card {
+            background: #f8f9fa;
+            padding: 1rem 0.5rem;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .label {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-bottom: 0.3rem;
+        }
+        .value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .info {
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+            color: #95a5a6;
+        }
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>BSA 基準値検索</h1>
+    
+    <div class="input-group">
+        <label for="bsaInput">BSA (m²)</label>
+        <input type="number" id="bsaInput" step="0.01" placeholder="例: 0.85" min="0.01" max="1.5">
+    </div>
+
+    <div id="errorMessage" class="error"></div>
+
+    <div class="results">
+        <div class="result-card">
+            <div class="label">LVDd</div>
+            <div id="lvddValue" class="value">-</div>
+        </div>
+        <div class="result-card">
+            <div class="label">LVDs</div>
+            <div id="lvdsValue" class="value">-</div>
+        </div>
+        <div class="result-card">
+            <div class="label">LADs</div>
+            <div id="ladsValue" class="value">-</div>
+        </div>
+    </div>
+
+    <div class="info">
+        <p>対応範囲: BSA 0.01 ～ 1.50</p>
+    </div>
+</div>
+
+<script>
+    // CSVデータを配列として定義
+    const rawData = `0.01,4,2,2
+0.02,4,3,3
+0.03,5,3,3
+0.04,6,4,3
+0.05,6,4,4
+0.06,7,5,4
+0.07,8,5,5
+0.08,9,5,5
+0.09,9,5,5
+0.1,9,6,6
+0.11,10,7,6
+0.12,11,7,7
+0.13,11,8,7
+0.14,12,8,8
+0.15,12,9,8
+0.16,13,9,8
+0.17,14,10,9
+0.18,14,10,9
+0.19,15,11,9
+0.2,15,11,10
+0.21,16,12,10
+0.22,17,12,11
+0.23,17,12,11
+0.24,18,13,11
+0.25,18,13,12
+0.26,19,14,12
+0.27,20,14,13
+0.28,20,15,13
+0.29,21,15,14
+0.3,21,16,14
+0.31,22,16,14
+0.32,23,17,15
+0.33,23,17,15
+0.34,24,18,16
+0.35,24,18,16
+0.36,25,18,16
+0.37,26,19,17
+0.38,26,19,17
+0.39,27,20,18
+0.4,27,20,18
+0.41,28,21,18
+0.42,29,21,19
+0.43,29,21,20
+0.44,29,22,20
+0.45,29,22,20
+0.46,29,22,20
+0.47,29,22,20
+0.48,29,22,20
+0.49,30,22,20
+0.5,30,22,20
+0.51,30,22,20
+0.52,30,22,20
+0.53,30,23,20
+0.54,30,23,20
+0.55,31,23,20
+0.56,31,23,20
+0.57,31,23,20
+0.58,31,23,21
+0.59,31,23,21
+0.6,31,23,21
+0.61,31,24,21
+0.62,32,24,21
+0.63,32,24,21
+0.64,32,24,21
+0.65,32,24,21
+0.66,32,24,21
+0.67,32,24,21
+0.68,32,24,21
+0.69,33,24,21
+0.7,33,25,21
+0.71,33,25,21
+0.72,33,25,22
+0.73,33,25,22
+0.74,33,25,22
+0.75,34,25,22
+0.76,34,25,22
+0.77,34,25,22
+0.78,34,26,22
+0.79,34,26,22
+0.8,34,26,22
+0.81,34,26,22
+0.82,35,26,22
+0.83,35,26,22
+0.84,35,26,22
+0.85,35,26,22
+0.86,35,26,22
+0.87,35,27,23
+0.88,35,27,23
+0.89,36,27,23
+0.9,36,27,23
+0.91,36,27,23
+0.92,36,27,23
+0.93,36,27,23
+0.94,36,27,23
+0.95,37,28,23
+0.96,37,28,23
+0.97,37,28,23
+0.98,37,28,23
+0.99,37,28,23
+1,37,28,23
+1.01,37,28,23
+1.02,38,28,24
+1.03,38,28,24
+1.04,38,29,24
+1.05,38,29,24
+1.06,38,29,24
+1.07,38,29,24
+1.08,38,29,24
+1.09,39,29,24
+1.1,39,29,24
+1.11,39,29,24
+1.12,39,30,24
+1.13,39,30,24
+1.14,39,30,24
+1.15,40,30,24
+1.16,40,30,25
+1.17,40,30,25
+1.18,40,30,25
+1.19,40,30,25
+1.2,40,30,25
+1.21,40,31,25
+1.22,41,31,25
+1.23,41,31,25
+1.24,41,31,25
+1.25,41,31,25
+1.26,41,31,25
+1.27,41,31,25
+1.28,41,31,25
+1.29,42,32,25
+1.3,42,32,26
+1.31,42,32,26
+1.32,42,32,26
+1.33,42,32,26
+1.34,42,32,26
+1.35,42,32,26
+1.36,42,32,26
+1.37,42,32,26
+1.38,42,33,26
+1.39,43,33,26
+1.4,43,33,26
+1.41,43,33,26
+1.42,44,33,26
+1.43,44,33,26
+1.44,44,33,26
+1.45,44,33,26
+1.46,44,34,27
+1.47,44,34,27
+1.48,44,34,27
+1.49,45,34,27
+1.5,45,34,27`;
+
+    // データをパースしてオブジェクトの配列にする
+    const data = rawData.split('\n').map(line => {
+        const [bsa, lvdd, lvds, lads] = line.split(',').map(Number);
+        return { bsa, lvdd, lvds, lads };
+    });
+
+    const bsaInput = document.getElementById('bsaInput');
+    const lvddValue = document.getElementById('lvddValue');
+    const lvdsValue = document.getElementById('lvdsValue');
+    const ladsValue = document.getElementById('ladsValue');
+    const errorMessage = document.getElementById('errorMessage');
+
+    bsaInput.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        
+        if (isNaN(val)) {
+            clearDisplay();
+            return;
+        }
+
+        if (val < 0.01 || val > 1.5) {
+            errorMessage.textContent = "範囲外です (0.01-1.50)";
+            clearDisplay();
+            return;
+        } else {
+            errorMessage.textContent = "";
+        }
+
+        // 最も近いBSA値を検索
+        const closest = data.reduce((prev, curr) => {
+            return (Math.abs(curr.bsa - val) < Math.abs(prev.bsa - val) ? curr : prev);
+        });
+
+        lvddValue.textContent = closest.lvdd;
+        lvdsValue.textContent = closest.lvds;
+        ladsValue.textContent = closest.lads;
+    });
+
+    function clearDisplay() {
+        lvddValue.textContent = "-";
+        lvdsValue.textContent = "-";
+        ladsValue.textContent = "-";
+    }
+</script>
+
+</body>
+</html>
